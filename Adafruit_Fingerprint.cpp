@@ -505,6 +505,43 @@ uint8_t Adafruit_Fingerprint::autoEnroll(uint8_t position) {
 
 /**************************************************************************/
 /*!
+    @brief   Ask the sensor start Automatic fingerprint verification (AutoIdentify 0x32)
+
+    @param level The security level used for mathcing
+    Other params are 
+    Config 1: StartID for searching | 1 byte 
+    Config 2: Number of items to search from starting position? | 1 byte
+    Config 3: Return all status steps during auto enrollment | 0x01 = Yes
+    Config 4: Number offingerprintsearch errors | Num 1 byte
+    @returns <code>FINGERPRINT_OK</code> on success
+    @returns code=0x01 On start?
+    @returns code=0x09 failed to search fingerprint (no match)
+    @returns code=0x0b the ID is out of range
+    @returns code=0x22 fingerprint template is empty
+    @returns code=0x24 fingerprint library is empty
+    @returns code=0x26 time-out (10sec)
+
+*/
+/**************************************************************************/
+uint8_t Adafruit_Fingerprint::autoIdentify(uint8_t level) {
+  GET_CMD_PACKET(FINGERPRINT_AUTOIDENTIFY,level,0x00,0x7F,0x00,0x03);
+
+  fingerID = 0xFFFF;
+  confidence = 0xFFFF;
+
+  fingerID = packet.data[2];
+  fingerID <<= 8;
+  fingerID |= packet.data[3];
+
+  confidence = packet.data[4];
+  confidence <<= 8;
+  confidence |= packet.data[5];
+
+  return packet.data[0];
+}
+
+/**************************************************************************/
+/*!
     @brief   Set the password on the sensor (future communication will require
    password verification so don't forget it!!!)
     @param   password 32-bit password code

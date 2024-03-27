@@ -76,7 +76,7 @@
        //!< last model generated
 #define FINGERPRINT_TEMPLATECOUNT 0x1D //!< Read finger template numbers
 #define FINGERPRINT_AUTOENROLL 0x31 //!< Automatic fingerprint regisrtation 
-
+#define FINGERPRINT_AUTOIDENTIFY 0x32 //!< Automatic fingerprint regisrtation 
 #define FINGERPRINT_AURALEDCONFIG 0x35 //!< Aura LED control
 #define FINGERPRINT_LEDON 0x50         //!< Turn on the onboard LED
 #define FINGERPRINT_LEDOFF 0x51        //!< Turn off the onboard LED
@@ -195,6 +195,7 @@ public:
   uint8_t fingerSearch(uint8_t slot = 1);
   uint8_t getTemplateCount(void);
   uint8_t autoEnroll(uint8_t position = 0xFF);
+  uint8_t autoIdentify(uint8_t level);
   uint8_t setPassword(uint32_t password);
   uint8_t LEDcontrol(bool on);
   uint8_t LEDcontrol(uint8_t control, uint8_t speed, uint8_t coloridx,
