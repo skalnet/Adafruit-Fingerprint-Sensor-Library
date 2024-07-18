@@ -76,6 +76,9 @@
        //!< last model generated
 #define FINGERPRINT_CHECKSENSOR 0x36   //!< Checks sensor
 #define FINGERPRINT_TEMPLATECOUNT 0x1D //!< Read finger template numbers
+#define FINGERPRINT_TEMPLATEREAD 0x1F  //!< Read finger templates
+#define FINGERPRINT_WRITENOTEPAD 0x18  //!< Write notepad
+#define FINGERPRINT_READNOTEPAD 0x19   //!< Read notepad
 #define FINGERPRINT_AUTOENROLL 0x31 //!< Automatic fingerprint regisrtation 
 #define FINGERPRINT_AUTOIDENTIFY 0x32 //!< Automatic fingerprint regisrtation 
 #define FINGERPRINT_AURALEDCONFIG 0x35 //!< Aura LED control
@@ -131,7 +134,7 @@
 
 //#define FINGERPRINT_DEBUG
 
-#define DEFAULTTIMEOUT 1000 //!< UART reading timeout in milliseconds
+#define DEFAULTTIMEOUT 2000 //!< UART reading timeout in milliseconds
 
 ///! Helper class to craft UART packets
 struct Adafruit_Fingerprint_Packet {
@@ -190,11 +193,14 @@ public:
   uint8_t getModel(void);
   uint8_t get_template_buffer(int bufsize,uint8_t ref_buf[]); // new addiiton,for getting template data from sensor
   uint8_t downloadModel(uint8_t buffer_no); //new addiiton,for loading template data to buffer 
-  boolean write_template_to_sensor(int temp_Size, uint8_t ref_buf[]) ; // new addition, for writing template data to sensor
+  uint8_t write_template_to_sensor(int temp_Size, const uint8_t ref_buf[]) ; // new addition, for writing template data to sensor
   uint8_t deleteModel(uint16_t id);
   uint8_t fingerFastSearch(void);
   uint8_t fingerSearch(uint8_t slot = 1);
   uint8_t getTemplateCount(void);
+  uint8_t getTemplateIndices(void);
+  uint8_t writeNotepad(uint8_t page, uint8_t content[]);
+  uint8_t readNotepad(uint8_t page, uint8_t content[]);
   uint8_t autoEnroll(uint8_t position = 0xFF);
   uint8_t autoIdentify(uint8_t level);
   uint8_t setPassword(uint32_t password);
@@ -218,7 +224,10 @@ public:
   uint16_t confidence;
   /// The number of stored templates in the sensor, set by getTemplateCount()
   uint16_t templateCount;
-
+  /// The stored template indices in the sensor, set by getTemplateIndices(),
+  /// filled up to templateCount
+  uint16_t templates[1500] = {0};
+  
   uint16_t status_reg = 0x0; ///< The status register (set by getParameters)
   uint16_t system_id = 0x0;  ///< The system identifier (set by getParameters)
   uint16_t capacity = 127; ///< The fingerprint capacity (set by getParameters)

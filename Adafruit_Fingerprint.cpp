@@ -283,15 +283,20 @@ uint8_t Adafruit_Fingerprint::getModel(void) {
 */
 /**************************************************************************/
 uint8_t Adafruit_Fingerprint::get_template_buffer(int bufsize,uint8_t ref_buf[]) { //new addition
+  if (getModel() != FINGERPRINT_OK) {
+    Serial.println("getModel failed");
+    return false; // check if buffer 1 is ready to be retrieved
+  }
+
   int div=ceil(bufsize/packet_len);
   int rcv_bt_len=(packet_len+11)*div; //data packet contains 11 extra bytes(first->2-header,4-address,1-type,2-length,last->2-checksum) excpet the main data
   uint8_t bytesReceived[rcv_bt_len];
   memset(bytesReceived, 0xff, rcv_bt_len);
-  uint32_t starttime = millis();
+  uint32_t starttime = millis() == 0 ? 1 : millis();
   int i = 0;
   while (i<rcv_bt_len && (millis() - starttime) < 5000) {
     if (mySerial->available()) {
-      starttime = millis();
+      starttime = millis() == 0 ? 1 : millis();
       bytesReceived[i++] = mySerial->read();
     }
   }
@@ -323,18 +328,31 @@ uint8_t Adafruit_Fingerprint::downloadModel(uint8_t buffer_no) { //new addition
     @returns true/false (successful or not)
 */
 /**************************************************************************/
-boolean Adafruit_Fingerprint::write_template_to_sensor(int temp_Size, uint8_t ref_buf[]) { //new addition
-  if(downloadModel(0x01) != FINGERPRINT_OK)return false; //check if buffer 1 is ready to be loaded
-  int div=ceil(temp_Size/packet_len);
-  uint8_t data[packet_len];
-  //memset(data, 0xff, packet_len);
-  Adafruit_Fingerprint_Packet t_packet(FINGERPRINT_DATAPACKET,packet_len,data); 
-  for(int i=0;i<div;i++){
-    if(i==(div-1))t_packet.type=FINGERPRINT_ENDDATAPACKET;
-    memcpy(t_packet.data,ref_buf+(packet_len*i),packet_len);
-    writeStructuredPacket(t_packet);
+uint8_t Adafruit_Fingerprint::write_template_to_sensor(int temp_Size, const uint8_t ref_buf[])
+{
+  uint8_t p = downloadModel(0x01);
+  if (p != FINGERPRINT_OK) {
+    Serial.println("downloadModel failed");
+    return p; // check if buffer 1 is ready to be loaded
   }
-  return true;
+
+  //delay(2000);
+
+  int div = ceil(temp_Size / packet_len);
+  uint8_t data[packet_len];
+  // memset(data, 0xff, packet_len);
+  Adafruit_Fingerprint_Packet t_packet(FINGERPRINT_DATAPACKET, packet_len, data);
+  for (int i = 0; i < div; i++) {
+    if (i == (div - 1))
+      t_packet.type = FINGERPRINT_ENDDATAPACKET;
+
+    memcpy(t_packet.data, ref_buf + (packet_len * i), packet_len);
+    writeStructuredPacket(t_packet);
+
+    //delay(1000);
+  }
+
+  return FINGERPRINT_OK;
 }
 
 /**************************************************************************/
@@ -481,6 +499,76 @@ uint8_t Adafruit_Fingerprint::getTemplateCount(void) {
   templateCount |= packet.data[2];
 
   return packet.data[0];
+}
+
+/**************************************************************************/
+/*!
+    @brief   read template index table from the sensor. The
+   template indices are stored in <b>templates</b> on success.
+    @returns <code>FINGERPRINT_OK</code> on success
+    @returns <code>FINGERPRINT_PACKETRECIEVEERR</code> on communication error
+*/
+/**************************************************************************/
+uint8_t Adafruit_Fingerprint::getTemplateIndices() {
+  uint8_t p = getParameters();
+  if (p != FINGERPRINT_OK)
+    return p;
+
+  p = getTemplateCount();
+  if (p != FINGERPRINT_OK)
+    return p;
+
+  // clear template indices
+  memset(templates, 0, sizeof(templates));
+  
+  //Serial.printf("capacity:%d,", capacity);
+  //uint8_t t = ceil(capacity / (double)256);
+  //Serial.printf("t:%d,", t);
+
+  uint16_t count = 0;
+  for (uint8_t j = 0; j < ceil(capacity / (double)256); ++j) {
+    //Serial.printf("for-j:%d,", j);
+    GET_CMD_PACKET(FINGERPRINT_TEMPLATEREAD, j);
+
+    if (packet.data[0] == FINGERPRINT_OK) {
+      for (uint8_t i = 0; i < 32; ++i) {
+        uint8_t byte = packet.data[i + 1];
+        //Serial.printf("byte%d,", byte);
+        for (uint8_t bit = 0; bit < 8; ++bit) {
+          if (bitRead(byte, bit)) { //if (byte & (1 << bit)) {
+            templates[count] = (i * 8) + bit + (j * 256);
+            //Serial.printf("bit%d,", templates[count]);
+            count++;
+          }
+        }
+      }
+    } else {
+      return FINGERPRINT_PACKETRECIEVEERR;
+    }
+  }
+
+  return FINGERPRINT_OK;
+}
+
+uint8_t Adafruit_Fingerprint::writeNotepad(uint8_t page, uint8_t content[]) {
+  SEND_CMD_PACKET(FINGERPRINT_WRITENOTEPAD, page,
+    content[0], content[1], content[2], content[3], content[4], content[5], content[6], content[7],
+    content[8], content[9], content[10], content[11], content[12], content[13], content[14], content[15],
+    content[16], content[17], content[18], content[19], content[20], content[21], content[22], content[23],
+    content[24], content[25], content[26], content[27], content[28], content[29], content[30], content[31]);
+}
+
+uint8_t Adafruit_Fingerprint::readNotepad(uint8_t page, uint8_t content[]) {
+  GET_CMD_PACKET(FINGERPRINT_READNOTEPAD, page);
+
+  if (packet.data[0] == FINGERPRINT_OK) {
+    for (uint8_t i = 0; i < 32; ++i) {
+      content[i] = packet.data[i + 1];
+    }
+    return FINGERPRINT_OK;
+  } else {
+    return FINGERPRINT_PACKETRECIEVEERR;
+  }
 }
 
 /**************************************************************************/
